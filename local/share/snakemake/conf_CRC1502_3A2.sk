@@ -1,0 +1,31 @@
+import os
+def find_prj_root(path=os.getcwd()):
+    if os.path.isfile(os.path.join(path,".PRJ_ROOT")):
+        return path
+    else:
+        if path:
+            return find_prj_root(os.path.dirname(path))
+        else:
+            raise Exception("Can not find the PRJ_ROOT directory")
+
+PRJ_ROOT=find_prj_root()
+ROOT = os.path.dirname(PRJ_ROOT)
+SRC_DIR=PRJ_ROOT+'/local/src'
+SHR_DIR=PRJ_ROOT+'/local/share'
+BIN_DIR=PRJ_ROOT+'/local/bin'
+DATA_DIR=PRJ_ROOT+'/dataset/CRC1502_3A2_second_run'
+
+TMP="/scratch/tmp/"
+
+SAMPLES=["CRC1502"]
+BARCODES=['TAAGGCGA','GCTACGCT','AGGCTCCG','CTGCGCAT']
+
+REFERENCE="/home/bioeda/bio/spatial/refdata-GRCh38-1.0.0"
+GENOME="GrCh38"
+BINNING="fixed_2000000"
+RUN_GINKGO = SRC_DIR+"/run_ginkgo/bin/phylics"
+
+
+BAM_DIR=SHR_DIR+'/data/scDNA_CRC1502_3A2'
+LOGS_DIR=DATA_DIR+'/logs'
+ENVS_DIR=SHR_DIR+'/envs'

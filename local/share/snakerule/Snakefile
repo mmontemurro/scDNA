@@ -1,0 +1,108 @@
+include: 'conf.sk'
+
+#2017  samtools view -H CRC1502_3A2_tnH.bam |  grep '@RG' | cut -f 2
+#|tr ":" "\t" | grep 1502 | cut -f 2 | grep -v Background > good_rg
+"""
+rule merge_bam:
+    input: expand(BAM_DIR+"/{sample}_BC_{barcode}_bcdedup.bam", sample=SAMPLES, barcode=BARCODES)
+    output: BAM_DIR+"/{sample}_tnH.bam"
+    log: LOGS_DIR + "{sample}.log"
+    shell:
+        'samtools merge -cp {output} {input}'
+rule index_bam:
+    input:
+        BAM_DIR+"/{sample}_tnH.bam"
+    resources:
+        cpus=8,
+        mem_mb=10000
+    output:
+        BAM_DIR+"/{sample}_tnH.bam.bai"
+    shell:
+        'samtools index {input}'
+"""
+
+rule all:
+    input: expand("{sample}-ginko-done", sample=SAMPLES),
+           expand("{sample}_nbarcodes.tsv", sample=SAMPLES)
+
+rule splitbam:
+    input: bam=BAM_DIR+"/{sample}_BC_{barcode}_bcdedup.bam", rg=BAM_DIR+'/all_rg_{barcode}'
+    output: directory("{sample}-{barcode}-sc")
+    params: noise="{sample}-{barcode}-sc/noise", nthreads=8
+    shell:
+        """
+            if [ ! -d {output} ]; then
+                mkdir {output}
+            fi
+
+            samtools view -h -F 1280 -q 30 {input.bam} -R {input.rg} | samtools split -f '{output}/%!.bam' --threads {params.nthreads} -u {params.noise} -
+
+        """
+
+rule merge_bams_dir:
+    input: expand("{{sample}}-{barcode}-sc", barcode=BARCODES)
+    output: touch("{sample}-merge_bams_dir.done")
+    params: outdir="{sample}-sc"
+    shell:
+        """
+            if [ ! -d {params.outdir} ]; then
+                mkdir {params.outdir}
+            fi
+
+            for d in {input}; do
+                mv $d/* {params.outdir}
+            done
+
+            for d in {input}; do
+                rm -rf $d
+            done
+        """
+
+rule bam_to_bed_groups:
+    input: "{sample}-merge_bams_dir.done", whitelist=BAM_DIR+'/{sample}_whitelist.tsv'
+    output: touch("{sample}-bam_to_bed_groups.done")
+    params: suffix=expand("_nan_{barcode}.bam", barcode=BARCODES), indir="{sample}-sc", outdir="{sample}-bed"
+    run:
+        import os
+        os.mkdir(params.outdir)
+        with open(input.whitelist,'r') as white:
+            for wl in white.readlines():
+                wl = wl.rstrip()
+                values = wl.split("\t")
+                head = values[0]
+                bc_fn = os.path.join(params.outdir, head+'.bed.gz')
+                if os.path.exists(bc_fn):
+                    os.remove(bc_fn) # just to be cautios
+                for s in params.suffix:
+                    bami = os.path.join(params.indir, head + "-" + wildcards.sample +s)
+                    print(bami)
+                    if os.path.exists(bami):
+                        os.system('bedtools bamtobed -i ' + bami + ' | gzip >> ' + bc_fn) # horrific but still
+
+rule n_barcodes:
+    input: "{sample}-bam_to_bed_groups.done"
+    output: "{sample}_nbarcodes.tsv"
+    params: remove='CRC1502-bed\/', indir="{sample}-bed"
+    shell:
+        """
+        for b in {params.indir}/*.bed.gz; do
+            zcat $b | wc -l | awk -v f=$b '{{print f,$1}}'
+        done | sed 's/{params.remove}//1' | sed 's/\.bed\.gz//1' > {output}
+        """
+
+
+rule ginkgo:
+    input: "{sample}-bam_to_bed_groups.done"
+    output: touch("{sample}-ginko-done")
+    params: genome=GENOME, binning=BINNING, tool=RUN_GINKGO, indir="{sample}-bed", outdir="{sample}-cnvs"
+    conda: ENVS_DIR + '/phylics.yml'
+    shell:
+        """
+            if [ ! -d {params.outdir} ]; then
+                mkdir {params.outdir}
+            fi
+            
+            python {params.tool} --run --run_cnvs --input_dirs {wildcards.sample}:{params.indir} --genome {params.genome} --binning {params.binning} --verbose 
+            mv {params.indir}/Seg* {params.indir}/results.txt {params.outdir}
+
+        """
