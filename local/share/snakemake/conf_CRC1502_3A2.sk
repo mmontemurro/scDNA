@@ -20,11 +20,14 @@ TMP="/scratch/tmp/"
 SAMPLES=["CRC1502"]
 BARCODES=['TAAGGCGA','GCTACGCT','AGGCTCCG','CTGCGCAT']
 
-REFERENCE="/home/bioeda/bio/spatial/refdata-GRCh38-1.0.0"
+REFERENCE="/mnt/trcanmed/snaketree/task/annotations/dataset/gnomad/GRCh38.d1.vd1.fa"
 GENOME="GrCh38"
 BINNING="fixed_2000000"
 RUN_GINKGO = SRC_DIR+"/run_ginkgo/bin/phylics"
-
+SNPseeker="/mnt/trcanmed/snaketree/prj/scDNA/local/src/clonal/scSNPseeker.py"
+BULK_VCF="/scratch/trcanmed/AF_spectra/local/share/data/second_shipment_bulk/CRC1502LMO-0-B.pass.vcf.gz"
+CLONES_VCF= "/scratch/trcanmed/AF_spectra/local/share/data/CRC1502_clones_all/platypus_filtered.vcf.gz"
+NORMAL="/mnt/trcanmed/snaketree/prj/snakegatk/dataset/CRC1502_clones/align/markedDup_CRC1502NLH0000000000D03000.sorted.bam"
 
 BAM_DIR=SHR_DIR+'/data/scDNA_CRC1502_3A2'
 LOGS_DIR=DATA_DIR+'/logs'
